@@ -25,7 +25,7 @@ func (e HTTPError) Error() string {
 	return fmt.Sprintf("status %d, err: %v", e.code, e.err)
 }
 
-func makeEchoEndpoint(svc echoService) endpoint.Endpoint {
+func makeEchoEndpoint(svc EchoService) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.(echoRequest)
 		v := svc.Echo(req.S)

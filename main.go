@@ -16,11 +16,14 @@ func main() {
 	)
 	flag.Parse()
 
-	svc := echoService{"Hello"}
-
 	var logger log.Logger
 	logger = log.NewLogfmtLogger(os.Stderr)
 	logger = log.With(logger, "listen", *listen, "caller", log.DefaultCaller)
+
+	var svc EchoService
+	svc = echoService{"Hello"}
+	// middlewares
+	svc = loggingMiddleware(logger)(svc)
 
 	echoHandler := httptransport.NewServer(
 		makeEchoEndpoint(svc),
