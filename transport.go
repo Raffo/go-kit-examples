@@ -7,6 +7,9 @@ import (
 	"net/http"
 
 	"github.com/go-kit/kit/endpoint"
+	"github.com/go-kit/kit/log"
+	httptransport "github.com/go-kit/kit/transport/http"
+	"github.com/gorilla/mux"
 )
 
 // HTTPError is an error type used to customize the status code returned by the HTTP API
@@ -31,6 +34,18 @@ func makeEchoEndpoint(svc EchoService) endpoint.Endpoint {
 		v := svc.Echo(req.S)
 		return echoResponse{v}, nil
 	}
+}
+
+func MakeHTTPHandler(s EchoService, logger log.Logger) http.Handler {
+	r := mux.NewRouter()
+
+	r.Methods("POST").Path("/echo").Handler(httptransport.NewServer(
+		makeEchoEndpoint(s),
+		decodeEchoRequest,
+		encodeResponse,
+		httptransport.ServerErrorLogger(logger),
+	))
+	return r
 }
 
 func decodeEchoRequest(_ context.Context, r *http.Request) (interface{}, error) {

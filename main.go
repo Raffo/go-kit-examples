@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-kit/kit/log"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
-	httptransport "github.com/go-kit/kit/transport/http"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -52,15 +51,22 @@ func main() {
 
 	svc = instrumentingMiddleware(requestCount, requestLatency, countResult)(svc)
 
-	echoHandler := httptransport.NewServer(
-		makeEchoEndpoint(svc),
-		decodeEchoRequest,
-		encodeResponse,
-		httptransport.ServerErrorLogger(logger),
-	)
-	http.Handle("/echo", echoHandler)
-	http.Handle("/metrics", promhttp.Handler())
+	var h http.Handler
+	{
+		h = MakeHTTPHandler(svc, log.With(logger, "component", "HTTP"))
+	}
 
-	logger.Log("msg", "HTTP server started", "addr", *listen)
-	logger.Log("err", http.ListenAndServe(*listen, nil))
+	errs := make(chan error)
+
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		http.ListenAndServe(":7979", nil)
+	}()
+
+	go func() {
+		logger.Log("transport", "HTTP", "addr", ":8080")
+		errs <- http.ListenAndServe(":8080", h)
+	}()
+
+	logger.Log("exit", <-errs)
 }
