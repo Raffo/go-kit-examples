@@ -29,27 +29,44 @@ func (e HTTPError) Error() string {
 }
 
 func makeEchoEndpoint(svc EchoService) endpoint.Endpoint {
-	return func(ctx context.Context, request interface{}) (interface{}, error) {
-		req := request.(echoRequest)
+	return func(ctx context.Context, r interface{}) (interface{}, error) {
+		req := r.(request)
 		v := svc.Echo(req.S)
-		return echoResponse{v}, nil
+		return response{v}, nil
+	}
+}
+
+func makeUppercaseEndpoint(svc EchoService) endpoint.Endpoint {
+	return func(ctx context.Context, r interface{}) (interface{}, error) {
+		req := r.(request)
+		v := svc.Uppercase(req.S)
+		return response{v}, nil
 	}
 }
 
 func MakeHTTPHandler(s EchoService, logger log.Logger) http.Handler {
 	r := mux.NewRouter()
 
+	// 	swagger:route POST /todos echo
 	r.Methods("POST").Path("/echo").Handler(httptransport.NewServer(
 		makeEchoEndpoint(s),
-		decodeEchoRequest,
+		decodeRequest,
+		encodeResponse,
+		httptransport.ServerErrorLogger(logger),
+	))
+
+	// 	swagger:route POST /uppercase uppercase
+	r.Methods("POST").Path("/uppercase").Handler(httptransport.NewServer(
+		makeUppercaseEndpoint(s),
+		decodeRequest,
 		encodeResponse,
 		httptransport.ServerErrorLogger(logger),
 	))
 	return r
 }
 
-func decodeEchoRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	var request echoRequest
+func decodeRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	var request request
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		return nil, HTTPError{code: 400, err: err}
 	}
@@ -60,10 +77,10 @@ func encodeResponse(_ context.Context, w http.ResponseWriter, response interface
 	return json.NewEncoder(w).Encode(response)
 }
 
-type echoRequest struct {
+type request struct {
 	S string `json:"s"`
 }
 
-type echoResponse struct {
+type response struct {
 	S string `json:"s"`
 }
